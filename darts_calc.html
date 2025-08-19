@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Darts Calc</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        .form-select[multiple] { height: 150px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="mb-4">Darts Counter</h1>
+
+    <div class="mb-3">
+        <label class="form-label">Players (Comma Separated)</label>
+        <input type="text" id="players" class="form-control" placeholder="Example: Masa, Mr.Topple, Mike, Beppe">
+    </div>
+
+    <h4>Add Leg</h4>
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">High Score</label>
+            <select id="highSelect" class="form-select" multiple></select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Low Score</label>
+            <select id="lowSelect" class="form-select" multiple></select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Winner</label>
+            <select id="winSelect" class="form-select" multiple></select>
+        </div>
+    </div>
+    <button id="addRound" class="btn btn-primary mt-3">Add leg</button>
+
+    <h4 class="mt-4">Legs</h4>
+    <table class="table table-bordered" id="roundsTable">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Wins</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <button id="calc" class="btn btn-success">Calculate</button>
+
+    <h4 class="mt-4">Results</h4>
+    <table class="table table-bordered" id="summaryTable">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Wins</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Total (€)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h4 class="mt-4">Details</h4>
+    <table class="table table-bordered" id="detailsTable">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>€ For Wins</th>
+                <th>€ For High</th>
+                <th>€ For Low</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+    let rounds = JSON.parse(localStorage.getItem('rounds') || '[]');
+    let playersList = [];
+
+    function saveData() {
+        localStorage.setItem('rounds', JSON.stringify(rounds));
+        localStorage.setItem('players', JSON.stringify(playersList));
+    }
+
+    function loadData() {
+        playersList = JSON.parse(localStorage.getItem('players') || '[]');
+        if (playersList.length) {
+            document.getElementById('players').value = playersList.join(', ');
+            updateSelects();
+        }
+        renderRounds();
+    }
+
+    function updateSelects() {
+        const selects = ['highSelect', 'lowSelect', 'winSelect'];
+        selects.forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '';
+            playersList.forEach(p => {
+                let opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                sel.appendChild(opt);
+            });
+        });
+    }
+
+    document.getElementById('players').addEventListener('change', () => {
+        playersList = document.getElementById('players').value.split(',').map(s => s.trim()).filter(s => s);
+        updateSelects();
+        saveData();
+    });
+
+    document.getElementById('addRound').addEventListener('click', () => {
+        let high = Array.from(document.getElementById('highSelect').selectedOptions).map(o => o.value);
+        let low = Array.from(document.getElementById('lowSelect').selectedOptions).map(o => o.value);
+        let wins = Array.from(document.getElementById('winSelect').selectedOptions).map(o => o.value);
+        rounds.push({high, low, wins});
+        saveData();
+        renderRounds();
+    });
+
+    function renderRounds() {
+        const tbody = document.querySelector('#roundsTable tbody');
+        tbody.innerHTML = '';
+        rounds.forEach((r, idx) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idx+1}</td>
+                <td>${r.high.join(', ')}</td>
+                <td>${r.low.join(', ')}</td>
+                <td>${r.wins.join(', ')}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="deleteRound(${idx})">X</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function deleteRound(i) {
+        rounds.splice(i,1);
+        saveData();
+        renderRounds();
+    }
+
+    document.getElementById('calc').addEventListener('click', () => {
+        const reward = 0.5;
+        let scores = {}, stats = {}, details = {};
+        playersList.forEach(p => {
+            scores[p] = 0;
+            stats[p] = {Wins:0, High:0, Low:0};
+            details[p] = {win:0, high:0, low:0};
+        });
+        const n = playersList.length;
+
+        rounds.forEach(r => {
+            r.high.forEach(h => {
+                stats[h].High++;
+                let gain = reward*(n-1);
+                details[h].high += gain;
+                scores[h] += gain;
+                playersList.forEach(p => { if (p!==h) scores[p] -= reward; });
+            });
+            r.low.forEach(l => {
+                stats[l].Low++;
+                let loss = reward*(n-1);
+                details[l].low -= loss;
+                scores[l] -= loss;
+                playersList.forEach(p => { if (p!==l) scores[p] += reward; });
+            });
+            r.wins.forEach(w => {
+                stats[w].Wins++;
+                let gain = reward*(n-1);
+                details[w].win += gain;
+                scores[w] += gain;
+                playersList.forEach(p => { if (p!==w) scores[p] -= reward; });
+            });
+        });
+
+        const summaryBody = document.querySelector('#summaryTable tbody');
+        summaryBody.innerHTML = '';
+        playersList.forEach(p => {
+            summaryBody.innerHTML += `<tr>
+                <td>${p}</td>
+                <td>${stats[p].Wins}</td>
+                <td>${stats[p].High}</td>
+                <td>${stats[p].Low}</td>
+                <td>${scores[p].toFixed(2)} €</td>
+            </tr>`;
+        });
+
+        const detailsBody = document.querySelector('#detailsTable tbody');
+        detailsBody.innerHTML = '';
+        playersList.forEach(p => {
+            detailsBody.innerHTML += `<tr>
+                <td>${p}</td>
+                <td>${details[p].win.toFixed(2)} €</td>
+                <td>${details[p].high.toFixed(2)} €</td>
+                <td>${details[p].low.toFixed(2)} €</td>
+            </tr>`;
+        });
+    });
+
+    loadData();
+</script>
+</body>
+</html>
