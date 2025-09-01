@@ -70,9 +70,12 @@
         <thead>
             <tr>
                 <th>Player</th>
-                <th>€ For Wins</th>
-                <th>€ For High</th>
-                <th>€ For Low</th>
+                <th>Wins (+)</th>
+                <th>Wins (−)</th>
+                <th>High (+)</th>
+                <th>High (−)</th>
+                <th>Low (+)</th>
+                <th>Low (−)</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -154,34 +157,53 @@
         playersList.forEach(p => {
             scores[p] = 0;
             stats[p] = {Wins:0, High:0, Low:0};
-            details[p] = {win:0, high:0, low:0};
+            details[p] = {winPlus:0, winMinus:0, highPlus:0, highMinus:0, lowPlus:0, lowMinus:0};
         });
         const n = playersList.length;
 
         rounds.forEach(r => {
+            // High
             r.high.forEach(h => {
                 stats[h].High++;
                 let gain = reward*(n-1);
-                details[h].high += gain;
+                details[h].highPlus += gain;
                 scores[h] += gain;
-                playersList.forEach(p => { if (p!==h) scores[p] -= reward; });
+                playersList.forEach(p => { 
+                    if (p!==h) { 
+                        scores[p] -= reward; 
+                        details[p].highMinus += reward;
+                    }
+                });
             });
+            // Low
             r.low.forEach(l => {
                 stats[l].Low++;
                 let loss = reward*(n-1);
-                details[l].low -= loss;
+                details[l].lowMinus += loss;
                 scores[l] -= loss;
-                playersList.forEach(p => { if (p!==l) scores[p] += reward; });
+                playersList.forEach(p => { 
+                    if (p!==l) { 
+                        scores[p] += reward; 
+                        details[p].lowPlus += reward;
+                    }
+                });
             });
+            // Wins
             r.wins.forEach(w => {
                 stats[w].Wins++;
                 let gain = reward*(n-1);
-                details[w].win += gain;
+                details[w].winPlus += gain;
                 scores[w] += gain;
-                playersList.forEach(p => { if (p!==w) scores[p] -= reward; });
+                playersList.forEach(p => { 
+                    if (p!==w) { 
+                        scores[p] -= reward; 
+                        details[p].winMinus += reward;
+                    }
+                });
             });
         });
 
+        // summary
         const summaryBody = document.querySelector('#summaryTable tbody');
         summaryBody.innerHTML = '';
         playersList.forEach(p => {
@@ -194,14 +216,18 @@
             </tr>`;
         });
 
+        // details
         const detailsBody = document.querySelector('#detailsTable tbody');
         detailsBody.innerHTML = '';
         playersList.forEach(p => {
             detailsBody.innerHTML += `<tr>
                 <td>${p}</td>
-                <td>${details[p].win.toFixed(2)} €</td>
-                <td>${details[p].high.toFixed(2)} €</td>
-                <td>${details[p].low.toFixed(2)} €</td>
+                <td>+${details[p].winPlus.toFixed(2)} €</td>
+                <td>−${details[p].winMinus.toFixed(2)} €</td>
+                <td>+${details[p].highPlus.toFixed(2)} €</td>
+                <td>−${details[p].highMinus.toFixed(2)} €</td>
+                <td>+${details[p].lowPlus.toFixed(2)} €</td>
+                <td>−${details[p].lowMinus.toFixed(2)} €</td>
             </tr>`;
         });
     });
